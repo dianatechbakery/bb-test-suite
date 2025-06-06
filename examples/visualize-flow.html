@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Based Flow Visualizer</title>
+  <script src="lib/d3.min.js"></script>
+  <script src="lib/dagre-d3.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    
+    #file-input {
+      margin-bottom: 20px;
+    }
+    
+    #graph {
+      width: 100%;
+      height: 800px;
+      border: 1px solid #ccc;
+      overflow: auto;
+    }
+    
+    .node rect {
+      stroke: #333;
+      fill: #fff;
+      stroke-width: 1.5px;
+    }
+    
+    .node.based rect {
+      fill: #e1f5fe;
+    }
+    
+    .node.loop-until rect {
+      fill: #fff9c4;
+    }
+    
+    .node.if rect {
+      fill: #e8f5e9;
+    }
+    
+    .node.end rect {
+      fill: #ffebee;
+    }
+    
+    .node.jump rect {
+      fill: #f3e5f5;
+    }
+    
+    .edgePath path {
+      stroke: #333;
+      stroke-width: 1.5px;
+      fill: none;
+    }
+    
+    .edgePath.ai path {
+      stroke: #9c27b0;
+      stroke-dasharray: 5, 5;
+    }
+    
+    .edgePath.logic path {
+      stroke: #2196f3;
+    }
+    
+    .node text {
+      font-size: 12px;
+      font-weight: bold;
+    }
+    
+    .edgeLabel text {
+      font-size: 10px;
+      fill: #333;
+    }
+  </style>
+</head>
+<body>
+  <h1>Based Flow Visualizer</h1>
+  
+  <div>
+    <input type="file" id="file-input" accept=".based">
+    <button id="parse-button">Parse & Visualize</button>
+  </div>
+  
+  <div id="graph"></div>
+  
+  <script>
+    // Create a new directed graph
+    const g = new dagreD3.graphlib.Graph().setGraph({
+      rankdir: 'TB',
+      marginx: 20,
+      marginy: 20,
+      nodesep: 50,
+      edgesep: 150,
+      ranksep: 150
+    });
+    
+    // Create the renderer
+    const render = new dagreD3.render();
+    
+    // Set up the SVG
+    const svg = d3.select('#graph')
+      .append('svg')
+      .attr('width', '100%')
+      .attr('height', '100%');
+    
+    const svgGroup = svg.append('g');
+    
+    // Add zoom behavior
+    const zoom = d3.zoom().on('zoom', (event) => {
+      svgGroup.attr('transform', event.transform);
+    });
+    
+    svg.call(zoom);
+    
+    // Parse button click handler
+    document.getElementById('parse-button').addEventListener('click', async () => {
+      const fileInput = document.getElementById('file-input');
+      
+      if (!fileInput.files.length) {
+        alert('Please select a Based file');
+        return;
+      }
+      
+      const file = fileInput.files[0];
+      const code = await file.text();
+      
+      try {
+        // Call the API to parse the Based code
+        const response = await fetch('http://localhost:3000/based/node', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ code })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to parse Based code');
+        }
+        
+        const { nodes, edges } = await response.json();
+        
+        // Clear the graph
+        g.nodes().forEach(v => g.removeNode(v));
+        
+        // Add nodes to the graph
+        nodes.forEach(node => {
+          g.setNode(node.id, {
+            label: node.name,
+            class: node.type,
+            rx: 5,
+            ry: 5,
+            width: 150,
+            height: 40
+          });
+        });
+        
+        // Add edges to the graph
+        edges.forEach(edge => {
+          const edgeClass = edge.condition ? edge.condition.type : '';
+          const label = edge.condition ? 
+            (edge.condition.type === 'ai' ? edge.condition.prompt : edge.condition.expression) : 
+            '';
+          
+          g.setEdge(edge.source.nodeId, edge.target.nodeId, {
+            label,
+            class: edgeClass,
+            curve: d3.curveBasis
+          });
+        });
+        
+        // Render the graph
+        render(svgGroup, g);
+        
+        // Center the graph
+        const initialScale = 0.75;
+        const svgWidth = svg.node().getBoundingClientRect().width;
+        const svgHeight = svg.node().getBoundingClientRect().height;
+        const graphWidth = g.graph().width;
+        const graphHeight = g.graph().height;
+        
+        const zoomTransform = d3.zoomIdentity
+          .translate((svgWidth - graphWidth * initialScale) / 2, (svgHeight - graphHeight * initialScale) / 2)
+          .scale(initialScale);
+        
+        svg.call(zoom.transform, zoomTransform);
+        
+      } catch (error) {
+        console.error('Error parsing Based code:', error);
+        alert('Error parsing Based code: ' + error.message);
+      }
+    });
+  </script>
+</body>
+</html>

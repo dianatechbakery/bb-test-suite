@@ -1,0 +1,39 @@
+# Simple Based flow example
+
+# Initial greeting
+say("Hello! I'm a virtual assistant. How can I help you today?")
+
+# Main conversation loop
+loop:
+  response = talk("I'm here to help. What can I do for you?")
+  
+  # Check for different user intents
+  until "user says goodbye":
+    say("Thank you for chatting with me. Have a great day!")
+    end()
+    
+  until "user asks about services":
+    say("We offer a variety of services including customer support, account management, and technical assistance.")
+    
+  until "user wants to speak to a human":
+    say("I'll transfer you to a human agent right away. Please hold.")
+    end()
+    
+  until "user says they're bored":
+    say("I'm sorry to hear that. Would you like me to tell you a joke or suggest something fun to do?")
+    
+    # Nested loop for entertainment options
+    loop:
+      entertainment_response = talk("I can tell you a joke or suggest an activity. What would you prefer?")
+      
+      until "user wants a joke":
+        say("Why don't scientists trust atoms? Because they make up everything!")
+        return "main loop"
+        
+      until "user wants an activity":
+        say("How about trying a new recipe, going for a walk, or watching a documentary?")
+        return "main loop"
+        
+      until "user says nevermind":
+        say("No problem, let's talk about something else.")
+        return "main loop"
