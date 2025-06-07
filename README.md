@@ -48,6 +48,25 @@ npm install
 npm run build
 ```
 
+### Environment Variables
+
+Set up the following environment variables for full functionality:
+
+```bash
+# Required for Brainbase integration
+export BRAINBASE_API_KEY="your_brainbase_api_key"
+export BRAINBASE_FLOW_ID="your_flow_id"
+
+# Optional Brainbase configuration
+export BRAINBASE_WORKER_ID="your_worker_id"  # Defaults to "worker_default" if not set
+export BRAINBASE_WS_HOST="your_websocket_host"  # Defaults to "wss://brainbase-engine-python.onrender.com"
+
+# Required for LLM integration
+export OPENAI_API_KEY="your_openai_api_key"
+```
+
+You can add these to your `.env` file or set them directly in your environment.
+
 ## ⚡ Quick Start
 
 ```bash
@@ -293,6 +312,27 @@ The `examples` directory contains:
 - `run-example.sh`: Script to run the example
 - `visualize-flow.html`: Web-based visualization tool
 - `open-visualizer.sh`: Script to open the visualization tool
+- `test-brainbase.js`: Script to test the Brainbase integration via API
+- `test-brainbase-runner.js`: Script to demonstrate interactive chat with Brainbase
+- `test-brainbase-direct.js`: Script to test scenarios directly with Brainbase
+
+### Using the BrainbaseRunner
+
+The BrainbaseRunner class provides a direct interface to the Brainbase Engine via WebSocket. You can use it to:
+
+1. Run interactive chat sessions with Brainbase:
+   ```bash
+   cd examples
+   ./test-brainbase-runner.sh
+   ```
+
+2. Test scenarios directly against Brainbase:
+   ```bash
+   cd examples
+   ./test-brainbase-direct.sh
+   ```
+
+The BrainbaseRunner class supports streaming responses and provides an event-based API for handling messages from Brainbase.
 
 ## ❓ Troubleshooting
 
@@ -319,6 +359,15 @@ If tests fail to execute:
 1. Verify your Brainbase API key and flow ID
 2. Check the WebSocket connection to Brainbase
 3. Ensure your Based flow is deployed and active
+
+### BrainbaseRunner Issues
+
+If you encounter issues with the BrainbaseRunner:
+
+1. Check that the WebSocket URL is correct in `src/config.ts`
+2. Verify that your API key and flow ID are valid
+3. Ensure that the Brainbase Engine is running and accessible
+4. Check for any firewall or network issues that might block WebSocket connections
 
 ## 🤝 Contributing
 

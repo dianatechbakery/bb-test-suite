@@ -1,117 +1,66 @@
-import WebSocket from 'ws';
 import { Scenario, TestResult, Message } from '../types';
-
-/**
- * Interface for Brainbase WebSocket client options
- */
-interface BrainbaseWSClientOptions {
-  apiKey: string;
-  flowId: string;
-}
-
-/**
- * Simple implementation of the Brainbase WebSocket client
- */
-class BrainbaseWSClient {
-  private ws: WebSocket | null = null;
-  private messageQueue: string[] = [];
-  private responseHandlers: ((response: string) => void)[] = [];
-  private options: BrainbaseWSClientOptions;
-  
-  constructor(options: BrainbaseWSClientOptions) {
-    this.options = options;
-  }
-  
-  /**
-   * Connect to the Brainbase WebSocket server
-   */
-  async connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.ws = new WebSocket(`wss://api.usebrainbase.com/ws?api_key=${this.options.apiKey}&flow_id=${this.options.flowId}`);
-      
-      this.ws.on('open', () => {
-        console.log('Connected to Brainbase WebSocket');
-        resolve();
-      });
-      
-      this.ws.on('message', (data) => {
-        try {
-          const message = JSON.parse(data.toString());
-          const handler = this.responseHandlers.shift();
-          if (handler) {
-            handler(message.text || '');
-          }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
-      });
-      
-      this.ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
-        reject(error);
-      });
-    });
-  }
-  
-  /**
-   * Send a message to the Brainbase WebSocket server
-   * @param text Message text
-   * @returns Response from the server
-   */
-  async sendMessage(text: string): Promise<string> {
-    if (!this.ws) {
-      throw new Error('WebSocket not connected');
-    }
-    
-    return new Promise((resolve) => {
-      this.ws!.send(JSON.stringify({ type: 'message', text }));
-      this.responseHandlers.push(resolve);
-    });
-  }
-  
-  /**
-   * Disconnect from the Brainbase WebSocket server
-   */
-  async disconnect(): Promise<void> {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-  }
-}
+import { BrainbaseRunner, BrainbaseRunnerOptions } from './brainbase-runner';
+import { config } from '../config';
 
 /**
  * Run a test for a scenario
  * @param scenario Scenario to test
  * @param apiKey Brainbase API key
  * @param flowId Brainbase flow ID
+ * @param workerId Brainbase worker ID (optional)
  * @returns Test result
  */
-export async function runTest(scenario: Scenario, apiKey: string, flowId: string): Promise<TestResult> {
-  const client = new BrainbaseWSClient({ apiKey, flowId });
+export async function runTest(
+  scenario: Scenario, 
+  apiKey: string, 
+  flowId: string, 
+  workerId: string = config.brainbase.workerId
+): Promise<TestResult> {
+  const runner = new BrainbaseRunner({ 
+    apiKey, 
+    flowId, 
+    workerId,
+    host: config.brainbase.wsHost
+  });
   
   const transcript: Message[] = [];
   let success = true;
   let failureReason = '';
   
   try {
-    await client.connect();
+    // Set up message event handler
+    runner.on('message', (content: string) => {
+      transcript.push({ role: 'assistant', content });
+    });
     
-    // Send initial message to start the conversation
-    const initialResponse = await client.sendMessage('Hello');
-    transcript.push({ role: 'assistant', content: initialResponse });
+    // Set up error handler
+    runner.on('error', (error: any) => {
+      console.error('Error during test:', error);
+      success = false;
+      failureReason = typeof error === 'string' ? error : 'Unknown error';
+    });
+    
+    // Connect to the Brainbase Engine
+    await runner.start();
     
     // Execute each step in the scenario
     for (const step of scenario.steps) {
       transcript.push({ role: 'user', content: step.message });
       
-      const response = await client.sendMessage(step.message);
-      transcript.push({ role: 'assistant', content: response });
+      // Send the message
+      await runner.sendMessage(step.message);
+      
+      // Wait for a response (in a real implementation, you would use events)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Get the last assistant message from the transcript
+      const lastMessage = transcript[transcript.length - 1];
       
       // Simple check if response contains expected outcome
-      if (step.expectedOutcome && !response.includes(step.expectedOutcome)) {
+      if (step.expectedOutcome && lastMessage && !lastMessage.content.includes(step.expectedOutcome)) {
         success = false;
         failureReason = `Response did not match expected outcome at step ${step.id}`;
+        console.error(`Expected response to contain "${step.expectedOutcome}" but got: "${lastMessage?.content || 'no response'}"`);
         break;
       }
     }
@@ -120,7 +69,7 @@ export async function runTest(scenario: Scenario, apiKey: string, flowId: string
     success = false;
     failureReason = error instanceof Error ? error.message : 'Unknown error';
   } finally {
-    await client.disconnect();
+    await runner.close();
   }
   
   return {
@@ -136,15 +85,21 @@ export async function runTest(scenario: Scenario, apiKey: string, flowId: string
  * @param scenario Scenario to test
  * @param apiKey Brainbase API key
  * @param flowId Brainbase flow ID
+ * @param workerId Brainbase worker ID (optional)
  * @returns Test ID
  */
-export function queueTest(scenario: Scenario, apiKey: string, flowId: string): string {
+export function queueTest(
+  scenario: Scenario, 
+  apiKey: string, 
+  flowId: string, 
+  workerId: string = config.brainbase.workerId
+): string {
   const testId = `test_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
   
   // In a real implementation, this would add the test to a queue
   // For the MVP, we'll just run the test immediately in the background
   setTimeout(() => {
-    runTest(scenario, apiKey, flowId)
+    runTest(scenario, apiKey, flowId, workerId)
       .then(result => {
         // In a real implementation, this would store the result
         console.log(`Test ${testId} completed:`, result.success ? 'Success' : 'Failure');
