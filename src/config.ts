@@ -1,16 +1,12 @@
 /**
  * Configuration for the Brainbase Automated Testing Suite
  * 
- * To use this configuration, set the following environment variables:
- * - BRAINBASE_API_KEY: Your Brainbase API key
- * - BRAINBASE_FLOW_ID: The ID of your Based flow
- * - BRAINBASE_WORKER_ID: The worker ID for Brainbase Engine (optional)
- * - BRAINBASE_WS_HOST: The WebSocket host for Brainbase Engine (optional)
- * - OPENAI_API_KEY: Your OpenAI API key for LLM integration
+ * This configuration includes API keys for testing purposes.
+ * In a production environment, these should be replaced with environment variables.
  */
 
 export const config = {
-  brainbase: {
+   brainbase: {
     apiKey: process.env.BRAINBASE_API_KEY || 'your_api_key_here', // Replace with your API key or use environment variable
     defaultFlowId: process.env.BRAINBASE_FLOW_ID || 'your_flow_id_here', // Replace with your flow ID or use environment variable
     workerId: process.env.BRAINBASE_WORKER_ID || 'worker_default', // Worker ID for Brainbase Engine
@@ -18,6 +14,9 @@ export const config = {
   },
   llm: {
     provider: 'openai',
-    apiKey: process.env.OPENAI_API_KEY || ''
+    apiKey: process.env.OPENAI_API_KEY || '',
+    model: 'gpt-4-turbo', // Default model to use
+    temperature: 0.7, // Default temperature for creativity
+    maxTokens: 500 // Default max tokens for responses
   }
 };
